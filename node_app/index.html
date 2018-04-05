@@ -11,6 +11,7 @@
 
     <link href="https://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet">
 
+    <script src="/socket.io/socket.io.js"></script>
     <script type="text/javascript">
 
         function make_graph(div_id, graph_common, title) {
@@ -87,6 +88,7 @@
 
             svg.append("g")
                 .attr("class", "axis")
+                .attr("id", "y")
                 .attr("transform", "translate(" + padding + ",0)")
                 .call(yAxis);
 
@@ -102,17 +104,19 @@
 
             return {'dataset':dataset, 
                     'xScale':xScale, 
-                    'yScale':yScale, 
+                    'yScale':yScale,
                     'xAxis':xAxis,
+                    'yAxis':yAxis,
                     'svg':svg}
 
         };
 
-        function update_graph(graph_elements, graph_common) {
+        function update_graph(graph_elements, graph_common, new_data) {
             var dataset = graph_elements['dataset']
             var xScale = graph_elements['xScale']
             var yScale = graph_elements['yScale']
             var xAxis = graph_elements['xAxis']
+            var yAxis = graph_elements['yAxis']
             var svg = graph_elements['svg']
 
             var graph_height = graph_common['graph_height'];
@@ -128,30 +132,38 @@
                   return yScale(d.value);
                 });
             
-            var new_date = new Date();
-            dataset.push({date: new_date,
-                          value: Math.floor(Math.random() * maxDsetVal)});
-            // xScale and xAxis
+            dataset.push({date: new_data[0],
+                          value: new_data[1]});
+            // x and y Scale and Axis
             xScale = d3.scaleUtc()
-                        .domain([dataset[0].date, new_date])
+                        .domain([dataset[0].date, new_data[0]])
                         .range([padding, graph_width - padding]);
             xAxis = d3.axisBottom().scale(xScale);
-            // in my case y axis can stay as I've put max value there which is not changing
-            // but in real life would be update too
+
+            yScale = d3.scaleLinear()
+                            .domain([d3.max(dataset, function(d) {
+                                return d.value;
+                            }), 0])
+                            .range([padding, graph_height - padding]);
+
+            yAxis = d3.axisLeft().scale(yScale);
             
+
             // re-draw line
             svg.selectAll("path")
                 .data([dataset])
                 .attr('d', lineGen)
             dataset.shift();
             
-            svg.selectAll("#x")
-                .call(xAxis);
+            svg.selectAll("#x").call(xAxis);
+            svg.selectAll("#y").call(yAxis);
+
 
             return {'dataset':dataset, 
                     'xScale':xScale, 
                     'yScale':yScale, 
                     'xAxis':xAxis,
+                    'yAxis':yAxis,
                     'svg':svg}
 
         };
@@ -161,7 +173,7 @@
             var thead = table.append('thead');
             var tbody = table.append('tbody');
 
-            var columns = ['column1', 'column2'] //, 'column3'];
+            var columns = ['column1', 'column2'];
 
             // create header row
             thead.append('tr')
@@ -214,21 +226,32 @@
             var tab1_elements = make_table('tab1', table_data);
             var tab2_elements = make_table('tab2', table_data);
             var tab3_elements = make_table('tab3', table_data);
-            
+
+            var socket = io("http://localhost:8080");
+            socket.on("channel", function(msg){
+            if (msg.type === "nearRealTime") {
+                // console.log(msg);
+                var ts = new Date()
+                update_graph(graph1_elements, graph_common, [ts, msg["no_answ_c"]])
+                update_graph(graph2_elements, graph_common, [ts, msg["no_c_in_que"]])
+                update_graph(graph3_elements, graph_common, [ts, msg["avg_t_waiting"]])
+                }
+            });
+
+            // temporary buttons actions
             d3.select("#update-graph")
                 .on("click", function(){
-                    update_graph(graph1_elements, graph_common)
+                    update_graph(graph1_elements, graph_common, [new Date(), Math.floor(Math.random() * graph_common["maxDsetVal"])])
                 });
-
 
             d3.select("#update-graph2")
                 .on("click", function(){
-                    update_graph(graph2_elements, graph_common)
+                    update_graph(graph2_elements, graph_common, [new Date(), Math.floor(Math.random() * graph_common["maxDsetVal"])])
                 });
 
             d3.select("#update-graph3")
                 .on("click", function(){
-                    update_graph(graph3_elements, graph_common)
+                    update_graph(graph3_elements, graph_common, [new Date(), Math.floor(Math.random() * graph_common["maxDsetVal"])])
                 });
 
         });
