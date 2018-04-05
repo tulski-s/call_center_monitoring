@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Dashboard tests</title>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/4.13.0/d3.min.js"></script>
+
+    <link href="https://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet">
+
+    <script type="text/javascript">
+
+        function make_graph(div_id, graph_common, title) {
+            var graph_height = graph_common['graph_height'];
+            var graph_width = graph_common['graph_width'];
+            var padding = graph_common['padding'];
+            var maxDsetVal = graph_common['maxDsetVal'];
+            
+            // generate initial dataset
+            var dataset = function generateInitDataset() {
+                var dataset = [];
+                var dsetLenght = 120;
+                var interval = Math.floor(120 / dsetLenght);
+                var now = new Date();
+                now.setHours(now.getHours() - 2);
+                for (i=0; i<dsetLenght; i++) {
+                    var new_time = now.setMinutes(now.getMinutes() + interval);
+                    //console.log(now);
+                    dataset.push({date: new Date(new_time),
+                                  value: Math.floor(Math.random() * maxDsetVal)
+                    });
+                }
+                return dataset
+            }();
+
+            // generate scales
+            var hoursAgo = new Date();
+            hoursAgo.setHours(hoursAgo.getHours() - 2);
+            var now = new Date();
+            var xScale = d3.scaleUtc()
+                                .domain([hoursAgo, now])
+                                .range([padding, graph_width - padding]);
+
+            var yScale = d3.scaleLinear()
+                            .domain([d3.max(dataset, function(d) {
+                                return d.value;
+                            }), 0])
+                            .range([padding, graph_height - padding]);
+
+            // generate axis obj
+            var xAxis = d3.axisBottom()
+                            .scale(xScale);
+            var yAxis = d3.axisLeft()
+                            .scale(yScale);
+
+            // bind data, draw, etc.
+            var svg = d3.select("#"+div_id)
+                            .append("svg")
+                            .attr("width", graph_width)
+                            .attr("height", graph_height);
+
+            var lineGen = d3.line()
+                .x(function(d) {
+                  return xScale(d.date);
+                })
+                .y(function(d) {
+                  return yScale(d.value);
+                });
+
+            svg.append('path')
+                .data([dataset])
+                .attr('d', lineGen)
+                .attr('stroke', '#36BAA6')
+                .attr('stroke-width', 2)
+                .attr('fill', 'none');
+
+
+            // append axis
+            svg.append("g")
+                .attr("class", "axis")  // in case I have any special styling for axes
+                .attr("id", "x")
+                .attr("transform", "translate(0," + (graph_height - padding) + ")")
+                .call(xAxis);
+
+            svg.append("g")
+                .attr("class", "axis")
+                .attr("transform", "translate(" + padding + ",0)")
+                .call(yAxis);
+
+            // add text?
+            svg.append("text")
+                .attr("x", (graph_width / 1.75))
+                .attr("y", padding/2 + 5)
+                .attr("text-anchor", "middle")
+                .style("font-size", "20px")
+                .style("font-weight", "bold")
+                .style("font-family", "PT Sans, sans-serif")  
+                .text(title);
+
+            return {'dataset':dataset, 
+                    'xScale':xScale, 
+                    'yScale':yScale, 
+                    'xAxis':xAxis,
+                    'svg':svg}
+
+        };
+
+        function update_graph(graph_elements, graph_common) {
+            var dataset = graph_elements['dataset']
+            var xScale = graph_elements['xScale']
+            var yScale = graph_elements['yScale']
+            var xAxis = graph_elements['xAxis']
+            var svg = graph_elements['svg']
+
+            var graph_height = graph_common['graph_height'];
+            var graph_width = graph_common['graph_width'];
+            var padding = graph_common['padding'];
+            var maxDsetVal = graph_common['maxDsetVal'];
+
+            var lineGen = d3.line()
+                .x(function(d) {
+                  return xScale(d.date);
+                })
+                .y(function(d) {
+                  return yScale(d.value);
+                });
+            
+            var new_date = new Date();
+            dataset.push({date: new_date,
+                          value: Math.floor(Math.random() * maxDsetVal)});
+            // xScale and xAxis
+            xScale = d3.scaleUtc()
+                        .domain([dataset[0].date, new_date])
+                        .range([padding, graph_width - padding]);
+            xAxis = d3.axisBottom().scale(xScale);
+            // in my case y axis can stay as I've put max value there which is not changing
+            // but in real life would be update too
+            
+            // re-draw line
+            svg.selectAll("path")
+                .data([dataset])
+                .attr('d', lineGen)
+            dataset.shift();
+            
+            svg.selectAll("#x")
+                .call(xAxis);
+
+            return {'dataset':dataset, 
+                    'xScale':xScale, 
+                    'yScale':yScale, 
+                    'xAxis':xAxis,
+                    'svg':svg}
+
+        };
+
+        function make_table(div_id, table_data) {
+            var table = d3.select("#"+div_id).append("table");
+            var thead = table.append('thead');
+            var tbody = table.append('tbody');
+
+            var columns = ['column1', 'column2'] //, 'column3'];
+
+            // create header row
+            thead.append('tr')
+                  .selectAll('th')
+                  .data(columns).enter()
+                  .append('th')
+                    .text(function (column) { return column; });
+
+            // create a rows
+            var rows = tbody.selectAll('tr')
+                 .data(table_data)
+                 .enter()
+                 .append('tr');
+
+            // create a cell in each row for each column
+            var cells = rows.selectAll('td')
+               .data(function (row) {
+                  return columns.map(function (column) {
+                    return {column: column, value: row[column]};
+                  });
+                })
+               .enter()
+               .append('td')
+                 .text(function (d) { return d.value; });
+
+        };
+
+
+    	$(document).ready(function(){
+
+            var graph_common = {'graph_height': 300,
+                                'graph_width': 1400,
+                                'padding': 20,
+                                'maxDsetVal': 25
+                            };
+
+            var graph1_elements = make_graph('first_graph', graph_common, 'Number of answered calls');
+            var graph2_elements = make_graph('second_graph', graph_common, 'Number of calls in queue');
+            var graph3_elements = make_graph('third_graph', graph_common, 'Average time waiting on line');
+
+            var table_data = [
+                { "column1": "2013-01-01", "column2" : 45},
+                { "column1": "2013-02-01", "column2" : 50},
+                { "column1": "2013-03-01", "column2" : 55},
+                { "column1": "2013-04-01", "column2" : 50},
+                { "column1": "2013-05-01", "column2" : 45},
+                { "column1": "2013-06-01", "column2" : 79}
+            ];
+
+            var tab1_elements = make_table('tab1', table_data);
+            var tab2_elements = make_table('tab2', table_data);
+            var tab3_elements = make_table('tab3', table_data);
+            
+            d3.select("#update-graph")
+                .on("click", function(){
+                    update_graph(graph1_elements, graph_common)
+                });
+
+
+            d3.select("#update-graph2")
+                .on("click", function(){
+                    update_graph(graph2_elements, graph_common)
+                });
+
+            d3.select("#update-graph3")
+                .on("click", function(){
+                    update_graph(graph3_elements, graph_common)
+                });
+
+        });
+    </script>
+
+    <style type="text/css">
+        .graph-title {
+          text-align: center;
+        }
+        .navbar{
+            height: 50px;
+            border-bottom: 2px solid;
+            margin-top: 0px;
+        }
+        h2.title{
+            text-align: center;
+            margin-top: 20px;
+            font-family: 'PT Sans', sans-serif;
+        }
+        .row {
+            display: flex;
+        }
+        .column {
+            /*flex: 30%;*/
+            text-align: center;
+        }
+        .column-short {
+            /*flex: 0 0 30px;*/
+            text-align: center;
+        }
+        .column-graph {
+            /*flex: 0 0 1000px;*/
+            flex: 80%;
+            text-align: center;
+        }
+        .graph-placeholder {
+            max-width: 900px; 
+            max-height: 400px; 
+            padding: 10px
+        }
+
+        #metrics {
+            width: 95%;
+            margin: 10px auto;
+        }
+        .box {
+            background-color: #cccdcc;
+            height: 270px;
+            width: 190px;
+            margin: 20px;
+            font-weight: bold;
+            font-family: 'PT Sans', sans-serif;
+            color: black;
+            text-align: center;
+            display: inline-block;
+            float: left;
+        }
+        .head {
+            padding: 15px;
+            font-size: 30px;
+            line-height: 35px;
+        }
+        .top_margin {
+            margin-top: 10px
+        }
+        .count {
+            font-size: 60px;
+        }
+        .diff {
+            font-size: 40px;
+        }
+
+        .table-title {
+            padding-top: 20px;
+            padding-bottom: 5px;
+            font-size: 20px;
+            font-weight: bold;
+            text-align: center;
+            font-family: 'PT Sans', sans-serif;
+        }
+
+        table {  
+            color: #333;
+            font-family: 'PT Sans', sans-serif;
+            width: 400px; 
+            border-collapse: 
+            collapse; border-spacing: 0; 
+            margin-left: 10px;
+            margin-right: 10px;
+        }
+
+        td, th {
+            border: 1px solid #CCC; 
+            height: 30px;
+        }
+
+        th {  
+            background: #F3F3F3;
+            font-weight: bold;
+        }
+
+        td {  
+            background: #FAFAFA;
+            text-align: center;
+}
+
+
+
+    </style>
+</head>
+
+<body>
+    <div class="navbar"> 
+        <h2 class="title"> CALL CENTER MONITORING DASHBOARD </h2>
+    </div>
+
+    <div class="row">
+        <div class="column-short">
+            <div id="metrics">
+                <div class="box">
+                    <div class="head">Avg. call duration</div>
+                    <div class="count">00</div>
+                    <div class="diff">+/- 00</div>
+                </div>
+            </div>
+        </div>
+        <div class="column-graph">
+            <div class="graph-placeholder">
+                <div id="first_graph"></div>
+            </div>
+        </div>
+        
+        <div class="column"> 
+            <div class="table-title"> Top employees (by # of answered calls) </div>
+            <div class="table-placeholder">
+                <table id="tab1"></table>
+            </div> 
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="column-short">
+            <div id="metrics">
+                <div class="box">
+                    <div class="head"># Lost calls</div>
+                    <div class="count">00</div>
+                    <div class="diff">+/- 00</div>
+                </div>
+            </div>
+        </div>
+        <div class="column-graph">
+            <div class="graph-placeholder">
+                <div id="second_graph"></div>
+            </div>
+        </div>
+        
+        <div class="column">
+            <div class="table-title">Lost calls countries</div>
+            <div class="table-placeholder">
+                <table id="tab2"></table>
+            </div> 
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="column-short">
+            <div id="metrics">
+                <div class="box">
+                    <div class="head">Avg. service quality score</div>
+                    <div class="count">00</div>
+                    <div class="diff">+/- 00</div>
+                </div>
+            </div>
+        </div>
+        <div class="column-graph">
+            <div class="graph-placeholder">
+                <div id="third_graph"></div>
+            </div>
+        </div>
+        
+        <div class="column">
+            <div class="table-title">Top calls reasons</div>
+            <div class="table-placeholder">
+                <table id="tab3"></table>
+            </div> 
+        </div>
+    </div>
+
+
+    <div>
+        <button id="update-graph">Move!</button>
+        <button id="update-graph2">Move lower one!</button>
+        <button id="update-graph3">Move last one!</button>
+    </div>
+
+
+</body>
+
+</html>
