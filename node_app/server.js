@@ -56,15 +56,15 @@ var getTopVal = function (dict, val) {
 };
 
 var getTopFromObj = function (dict) {
-    var len = 5
+    var len = 6
     var pairs = Object.entries(dict)
     pairs = pairs.sort(function(a, b) {
-        return a[1] > b[1] ? 1 : -1;
+        return a[1] < b[1] ? 1 : -1;
     }).slice(0,len)
 
     if (pairs.length === 0) {
         return []
-    } else if (pairs.length < 5) {
+    } else if (pairs.length < len) {
         len = pairs.length
     } 
 

@@ -170,35 +170,51 @@
 
         function make_table(div_id, table_data, column_names) {
             var table = d3.select("#"+div_id).append("table");
-            var thead = table.append('thead');
-            var tbody = table.append('tbody');
+            var thead = table.append("thead");
+            var tbody = table.append("tbody");
 
             // create header row
-            thead.append('tr')
-                  .selectAll('th')
+            thead.append("tr")
+                  .selectAll("th")
                   .data(column_names).enter()
-                  .append('th')
+                  .append("th")
                     .text(function (column) { return column; });
 
-            var columns = ['key', 'val'];
+            var columns = ["key", "val"];
 
             // create a rows
-            var rows = tbody.selectAll('tr')
+            var rows = tbody.selectAll("tr")
                  .data(table_data)
                  .enter()
-                 .append('tr');
+                 .append("tr");
 
             // create a cell in each row for each column
-            var cells = rows.selectAll('td')
+            var cells = rows.selectAll("td")
                .data(function (row) {
                   return columns.map(function (column) {
                     return {column: column, value: row[column]};
                   });
                 })
                .enter()
-               .append('td')
+               .append("td")
                  .text(function (d) { return d.value; });
+        };
 
+        function update_table(div_id, new_data) {
+            var table = d3.select("#"+div_id);
+            var tbody = table.select("tbody");
+            var columns = ["key", "val"];
+
+            var rows = tbody.selectAll("tr")
+                 .data(new_data);
+
+            var cells = rows.selectAll("td")
+               .data(function (row) {
+                  return columns.map(function (column) {
+                    return {column: column, value: row[column]};
+                  });
+                })
+                 .text(function (d) { return d.value; });
         };
 
         function update_metric(val, metricElPrefix) {
@@ -243,12 +259,12 @@
             var graph3_elements = make_graph('third_graph', graph_common, 'Average time waiting on line');
 
             var table_data = [
-                { "key": "2013-01-01", "val" : 45},
-                { "key": "2013-02-01", "val" : 50},
-                { "key": "2013-03-01", "val" : 55},
-                { "key": "2013-04-01", "val" : 50},
-                { "key": "2013-05-01", "val" : 45},
-                { "key": "2013-06-01", "val" : 79}
+                { "key": "    -    ", "val" : 0},
+                { "key": "    -    ", "val" : 0},
+                { "key": "    -    ", "val" : 0},
+                { "key": "    -    ", "val" : 0},
+                { "key": "    -    ", "val" : 0},
+                { "key": "    -    ", "val" : 0}
             ];
 
             var tab1_elements = make_table('tab1', table_data, ['Employee', '# calls']);
@@ -268,29 +284,19 @@
                     update_metric(msg["avg_call_dur"], 'duration')
                     update_metric(msg["lost_calls"], 'calls')
                     update_metric(msg["avg_serv_q_scr"], 'score')
+
+                    update_table('tab1', msg["top_emp"])
+                    update_table('tab2', msg["lost_cntrs"])
+                    update_table('tab3', msg["lost_cntrs"])
+
+
                 }
             });
 
             // what is left...?
             //     OK - proper column names in table
-            //     - updating table
+            //     OK - updating table
             //     - geting initial data from db
-
-            // temporary buttons actions
-            d3.select("#update-graph")
-                .on("click", function(){
-                    update_metric(Math.floor(Math.random()*100), 'duration')
-                });
-
-            d3.select("#update-graph2")
-                .on("click", function(){
-                    update_metric(Math.floor(Math.random()*100), 'calls')
-                });
-
-            d3.select("#update-graph3")
-                .on("click", function(){
-                    update_metric(Math.floor(Math.random()*100), 'score')
-                });
 
         });
     </script>
@@ -477,14 +483,6 @@
             </div> 
         </div>
     </div>
-
-
-    <div>
-        <button id="update-graph">Move!</button>
-        <button id="update-graph2">Move lower one!</button>
-        <button id="update-graph3">Move last one!</button>
-    </div>
-
 
 </body>
 
