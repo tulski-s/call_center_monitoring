@@ -1,7 +1,7 @@
 // requieres and set-up
 var express = require('express')
-  , http = require('http');
-  //, fs = require("fs");
+  , http = require('http')
+  , mysql = require('sync-mysql');
 
 var app = express();
 var server = http.createServer(app);
@@ -13,11 +13,10 @@ app.get('/', function(req, res){
     res.sendfile(__dirname + '/index.html');
 });
 
-// if you need to load your script so it's available for client
-// app.get('/realTimeChartMulti.js', function(req, res){
-//     script = fs.readFileSync("realTimeChartMulti.js", "utf8");
-//     res.write(script);
-// });
+app.get('/getInitVals', function(req, res){
+    var initData = getInitDbData();
+    res.send(JSON.stringify(initData));
+});
 
 // data counters
 var durations = [];
@@ -77,6 +76,24 @@ var getTopFromObj = function (dict) {
     return top_array
 }
 
+var getInitDbData = function () {
+    console.log(' DB1 -> before creating of connection')
+    var con = new mysql({
+              host: "localhost",
+              user: "slaw",
+              password: "slaw123",
+              database: "call_center"
+            });
+
+    var no_of_answered = con.query("SELECT date, value FROM init_records WHERE tbl = 'no_of_answered';");
+    var calls_in_queue = con.query("SELECT date, value FROM init_records WHERE tbl = 'calls_in_queue';");
+    var avg_wait_time = con.query("SELECT date, value FROM init_records WHERE tbl = 'avg_wait_time';");
+    console.log(" DB2 -> connection made and queries executed");
+    return {'no_of_answered':no_of_answered,
+            'calls_in_queue':calls_in_queue,
+            'avg_wait_time':avg_wait_time}
+};
+
 async function tick (interval) {
     setInterval(function() {
         msgToEmit = {
@@ -90,14 +107,14 @@ async function tick (interval) {
         }, interval);
 }
 
+
 async function spin_consumer() {
     console.log(' 2) before consumer creation')
 
-    // to check if order is approprioate
-    // will call synchronosuly database later instead of that stupid looping
-    for (i=0; i<1000000000; i++) {
-        var y = i + i
-    }
+    var initData = getInitDbData();
+    answered = initData["no_of_answered"][initData["no_of_answered"].length-1].value
+    inQueue = initData["calls_in_queue"][initData["calls_in_queue"].length-1].value
+    avgWaiting = initData["avg_wait_time"][initData["avg_wait_time"].length-1].value
 
     var kafka = require('kafka-node'),
         HighLevelConsumer = kafka.HighLevelConsumer,

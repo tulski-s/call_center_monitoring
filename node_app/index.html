@@ -14,41 +14,25 @@
     <script src="/socket.io/socket.io.js"></script>
     <script type="text/javascript">
 
-        function make_graph(div_id, graph_common, title) {
+        function make_graph(dataset, div_id, graph_common, title) {
             var graph_height = graph_common['graph_height'];
             var graph_width = graph_common['graph_width'];
             var padding = graph_common['padding'];
             var maxDsetVal = graph_common['maxDsetVal'];
             
-            // generate initial dataset
-            var dataset = function generateInitDataset() {
-                var dataset = [];
-                var dsetLenght = 120;
-                var interval = Math.floor(120 / dsetLenght);
-                var now = new Date();
-                now.setHours(now.getHours() - 2);
-                for (i=0; i<dsetLenght; i++) {
-                    var new_time = now.setMinutes(now.getMinutes() + interval);
-                    //console.log(now);
-                    dataset.push({date: new Date(new_time),
-                                  value: Math.floor(Math.random() * maxDsetVal)
-                    });
-                }
-                return dataset
-            }();
+            // convert string dates to objs
+            for (i=0; i<dataset.length; i++) {
+                dataset[i].date = Date.parse(dataset[i].date)
+            }
 
             // generate scales
-            var hoursAgo = new Date();
-            hoursAgo.setHours(hoursAgo.getHours() - 2);
-            var now = new Date();
             var xScale = d3.scaleUtc()
-                                .domain([hoursAgo, now])
+                                .domain([dataset[0].date, dataset[dataset.length-1].date])
                                 .range([padding, graph_width - padding]);
-
             var yScale = d3.scaleLinear()
                             .domain([d3.max(dataset, function(d) {
                                 return d.value;
-                            }), 0])
+                            })+10, 0])
                             .range([padding, graph_height - padding]);
 
             // generate axis obj
@@ -78,7 +62,6 @@
                 .attr('stroke-width', 2)
                 .attr('fill', 'none');
 
-
             // append axis
             svg.append("g")
                 .attr("class", "axis")  // in case I have any special styling for axes
@@ -92,7 +75,6 @@
                 .attr("transform", "translate(" + padding + ",0)")
                 .call(yAxis);
 
-            // add text?
             svg.append("text")
                 .attr("x", (graph_width / 1.75))
                 .attr("y", padding/2 + 5)
@@ -131,6 +113,9 @@
                 .y(function(d) {
                   return yScale(d.value);
                 });
+
+            // mock new ts - add 1 minute to previous ts
+            new_data[0] = dataset[dataset.length-1].date + (60*1000)
             
             dataset.push({date: new_data[0],
                           value: new_data[1]});
@@ -143,12 +128,11 @@
             yScale = d3.scaleLinear()
                             .domain([d3.max(dataset, function(d) {
                                 return d.value;
-                            }), 0])
+                            })+10, 0])
                             .range([padding, graph_height - padding]);
 
             yAxis = d3.axisLeft().scale(yScale);
             
-
             // re-draw line
             svg.selectAll("path")
                 .data([dataset])
@@ -254,9 +238,20 @@
                                 'maxDsetVal': 25
                             };
 
-            var graph1_elements = make_graph('first_graph', graph_common, 'Number of answered calls');
-            var graph2_elements = make_graph('second_graph', graph_common, 'Number of calls in queue');
-            var graph3_elements = make_graph('third_graph', graph_common, 'Average time waiting on line');
+            var initDataReady = 0;
+            var graph1_elements = undefined;
+            var graph2_elements = undefined;
+            var graph3_elements = undefined;
+            var initData = $.get(
+                "http://localhost:8080/getInitVals",
+                function(data) {
+                    var data = JSON.parse(data);
+                    graph1_elements = make_graph(data["no_of_answered"], 'first_graph', graph_common, 'Number of answered calls');
+                    graph2_elements = make_graph(data["calls_in_queue"], 'second_graph', graph_common, 'Number of calls in queue');
+                    graph3_elements = make_graph(data["avg_wait_time"] , 'third_graph', graph_common, 'Average time waiting on line');
+                    initDataReady = 1;
+                }
+            );
 
             var table_data = [
                 { "key": "    -    ", "val" : 0},
@@ -274,12 +269,12 @@
             var socket = io("http://localhost:8080");
             socket.on("channel", function(msg){
             if (msg.type === "nearRealTime") {
-                // console.log(msg);
-                var ts = new Date()
-                update_graph(graph1_elements, graph_common, [ts, msg["no_answ_c"]])
-                update_graph(graph2_elements, graph_common, [ts, msg["no_c_in_que"]])
-                update_graph(graph3_elements, graph_common, [ts, msg["avg_t_waiting"]])
+                if (initDataReady === 1) {
+                    update_graph(graph1_elements, graph_common, ['ts_mock', msg["no_answ_c"]])
+                    update_graph(graph2_elements, graph_common, ['ts_mock', msg["no_c_in_que"]])
+                    update_graph(graph3_elements, graph_common, ['ts_mock', msg["avg_t_waiting"]])
                 }
+            }
             else if (msg.type === "realTime") {
                     update_metric(msg["avg_call_dur"], 'duration')
                     update_metric(msg["lost_calls"], 'calls')
@@ -288,15 +283,8 @@
                     update_table('tab1', msg["top_emp"])
                     update_table('tab2', msg["lost_cntrs"])
                     update_table('tab3', msg["lost_cntrs"])
-
-
                 }
             });
-
-            // what is left...?
-            //     OK - proper column names in table
-            //     OK - updating table
-            //     - geting initial data from db
 
         });
     </script>
@@ -319,15 +307,12 @@
             display: flex;
         }
         .column {
-            /*flex: 30%;*/
             text-align: center;
         }
         .column-short {
-            /*flex: 0 0 30px;*/
             text-align: center;
         }
         .column-graph {
-            /*flex: 0 0 1000px;*/
             flex: 80%;
             text-align: center;
         }
@@ -402,8 +387,6 @@
             text-align: center;
 }
 
-
-
     </style>
 </head>
 
@@ -417,7 +400,7 @@
             <div id="metrics">
                 <div class="box">
                     <div class="head">Avg. call duration</div>
-                    <div class="count" id="duration-count">00</div>
+                    <div class="count" id="duration-count">8.47</div>
                     <div class="diff" id="duration-diff">+/- 00</div>
                 </div>
             </div>
@@ -441,7 +424,7 @@
             <div id="metrics">
                 <div class="box">
                     <div class="head"># Lost calls</div>
-                    <div class="count" id="calls-count">00</div>
+                    <div class="count" id="calls-count">30</div>
                     <div class="diff" id="calls-diff">+/- 00</div>
                 </div>
             </div>
@@ -465,7 +448,7 @@
             <div id="metrics">
                 <div class="box">
                     <div class="head">Avg. service quality score</div>
-                    <div class="count" id="score-count">00</div>
+                    <div class="count" id="score-count">5.8</div>
                     <div class="diff" id="score-diff">+/- 00</div>
                 </div>
             </div>

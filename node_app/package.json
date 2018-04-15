@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "dependencies": {
     "express": "~4.0.0",
-    "mysql": "*",
+    "kafka-node": "latest",
+    "package.json": "^2.0.1",
     "socket.io": "latest",
-    "kafka-node": "latest"
+    "sync-mysql": "^3.0.1"
   }
 }
