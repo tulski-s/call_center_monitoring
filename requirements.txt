@@ -1,1 +1,5 @@
 pykafka
+mysql-connector-python
+fbprophet
+pandas
+numpy
