@@ -1,7 +1,5 @@
 # call_center_monitoring
 
-This is still in development
-
 ## MAC NODE.JS AND NECESSERY PACKAGES INSTALLATION
 1. get LTS version from https://nodejs.org/en/download/ and install it
 2. you can check where node.js was installed with `which node` or check it's version with `node --version`
